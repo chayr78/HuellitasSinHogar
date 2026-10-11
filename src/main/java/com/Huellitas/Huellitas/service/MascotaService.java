@@ -245,6 +245,7 @@ public class MascotaService {
     private static void copiarDatos(MascotaRequest req, Mascota mascota) {
         mascota.setNombre(req.nombre().trim());
         mascota.setEspecie(req.especie());
+        mascota.setSexo(req.sexo());
         mascota.setEdadAproximada(Textos.textoOpcional(req.edadAproximada()));
         mascota.setFotoUrl(Textos.textoOpcional(req.fotoUrl()));
         mascota.setTamano(req.tamano());
@@ -316,6 +317,7 @@ public class MascotaService {
                 tipoPublicador,
                 ubicacionPublicador,
                 mascota.getEspecie(),
+                mascota.getSexo(),
                 mascota.getEdadAproximada(),
                 mascota.getFotoUrl(),
                 mascota.getTamano(),

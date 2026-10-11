@@ -17,6 +17,8 @@ public record MascotaResponse(
         String tipoPublicador,
         String ubicacionPublicador,
         String especie,
+        // null en mascotas publicadas antes de que existiera el campo
+        String sexo,
         String edadAproximada,
         String fotoUrl,
         String tamano,

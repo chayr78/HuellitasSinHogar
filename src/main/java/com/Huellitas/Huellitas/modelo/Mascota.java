@@ -24,6 +24,10 @@ public class Mascota {
     @Column(nullable = false, length = 10)
     private String especie;
 
+    // MACHO / HEMBRA. Puede ser null en mascotas publicadas antes de que existiera el campo
+    @Column(length = 10)
+    private String sexo;
+
     @Column(name = "edad_aproximada", length = 30)
     private String edadAproximada;
 
@@ -82,6 +86,14 @@ public class Mascota {
 
     public void setEspecie(String especie) {
         this.especie = especie;
+    }
+
+    public String getSexo() {
+        return sexo;
+    }
+
+    public void setSexo(String sexo) {
+        this.sexo = sexo;
     }
 
     public String getEdadAproximada() {

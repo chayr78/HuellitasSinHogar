@@ -20,6 +20,10 @@ public record MascotaRequest(
         @Pattern(regexp = "PERRO|GATO", message = "La especie debe ser PERRO o GATO")
         String especie,
 
+        @NotBlank(message = "El sexo es obligatorio")
+        @Pattern(regexp = "MACHO|HEMBRA", message = "El sexo debe ser MACHO o HEMBRA")
+        String sexo,
+
         @Size(max = 30, message = "La edad aproximada no puede superar 30 caracteres")
         String edadAproximada,
 
