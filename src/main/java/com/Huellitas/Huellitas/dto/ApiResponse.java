@@ -10,8 +10,6 @@ public class ApiResponse<T> {
     private String mensaje;
     private T datos;
 
-    public ApiResponse() {}
-
     public ApiResponse(boolean exito, String mensaje, T datos) {
         this.exito = exito;
         this.mensaje = mensaje;

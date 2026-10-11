@@ -46,10 +46,8 @@ public class SecurityConfig {
     // Rutas que no necesitan iniciar sesión
     private static final RequestMatcher RUTAS_PUBLICAS = new OrRequestMatcher(
             ruta(HttpMethod.POST, "/api/auth/**"),
-            ruta(HttpMethod.GET, "/api/mascotas"),
             ruta(HttpMethod.GET, "/api/mascotas/disponibles"),
             ruta(HttpMethod.GET, "/api/mascotas/adoptados"),
-            ruta(HttpMethod.GET, "/api/mascotas/filtrar"),
             ruta(HttpMethod.GET, "/api/mascotas/{id}"),
             ruta(HttpMethod.POST, "/api/solicitudes/compatibilidad"));
 

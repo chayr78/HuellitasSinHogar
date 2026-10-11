@@ -20,9 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /*
  * Publicación, edición, cambio de estado y consulta de mascotas.
@@ -33,24 +35,28 @@ public class MascotaService {
     private static final String MENSAJE_SOLO_DUENO = "Solo quien publicó esta mascota puede modificarla";
     private static final int MAXIMO_FOTOS_ADICIONALES = 5;
     private static final String MENSAJE_SIN_PORTADA = "Primero elige la foto principal.";
+    private static final String MENSAJE_FOTO_EXTERNA = "Las fotos deben subirse desde el formulario.";
+    // Nombre que UploadService le da a cada archivo: UUID aleatorio + extensión
+    private static final String PATRON_ARCHIVO_SUBIDO = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
 
     private final MascotaRepository mascotaRepository;
     private final UsuarioRepository usuarioRepository;
     private final SolicitudRepository solicitudRepository;
     private final MascotaFotoRepository mascotaFotoRepository;
-    // Prefijo que deben tener las fotos adicionales (Supabase Storage público)
-    private final String prefijoFotos;
+    // URL pública del bucket en Supabase Storage; las fotos de mascota van en {bucket}/{publicadorId}/
+    private final String prefijoBucket;
 
     public MascotaService(MascotaRepository mascotaRepository,
                           UsuarioRepository usuarioRepository,
                           SolicitudRepository solicitudRepository,
                           MascotaFotoRepository mascotaFotoRepository,
-                          @Value("${app.supabase.url}") String supabaseUrl) {
+                          @Value("${app.supabase.url}") String supabaseUrl,
+                          @Value("${app.supabase.bucket}") String bucket) {
         this.mascotaRepository = mascotaRepository;
         this.usuarioRepository = usuarioRepository;
         this.solicitudRepository = solicitudRepository;
         this.mascotaFotoRepository = mascotaFotoRepository;
-        this.prefijoFotos = supabaseUrl.replaceAll("/+$", "") + "/storage/v1/object/public/";
+        this.prefijoBucket = supabaseUrl.replaceAll("/+$", "") + "/storage/v1/object/public/" + bucket + "/";
     }
 
     // ---------- Consultas ----------
@@ -69,13 +75,6 @@ public class MascotaService {
         return toResponse(mascotaRepository.findByEstadoOrderByFechaPublicacionDesc(Constantes.MASCOTA_ADOPTADO));
     }
 
-    // Catálogo con filtro de tamaño (solo disponibles)
-    public List<MascotaResponse> filtrarPorTamano(String tamano) {
-        String tamanoNormalizado = tamano.trim().toUpperCase(Locale.ROOT);
-        return toResponse(mascotaRepository.findByTamanoAndEstadoOrderByFechaPublicacionDesc(
-                tamanoNormalizado, Constantes.MASCOTA_DISPONIBLE));
-    }
-
     public List<MascotaResponse> obtenerDelPublicador(Long publicadorId) {
         return toResponse(mascotaRepository.findByPublicadorIdOrderByFechaPublicacionDesc(publicadorId));
     }
@@ -89,7 +88,10 @@ public class MascotaService {
     // RF-03: el publicador sale del token, nunca del body
     @Transactional
     public MascotaResponse crear(MascotaRequest req, UsuarioAutenticado usuario) {
-        List<String> fotos = limpiarFotos(req.fotosAdicionales(), req.fotoUrl());
+        // Mascota nueva: todas las fotos deben venir de POST /api/uploads/mascota
+        Set<String> sinFotosPrevias = new HashSet<>();
+        verificarFotoPropia(req.fotoUrl(), usuario.id(), sinFotosPrevias);
+        List<String> fotos = limpiarFotos(req.fotosAdicionales(), req.fotoUrl(), usuario.id(), sinFotosPrevias);
 
         Mascota mascota = new Mascota();
         copiarDatos(req, mascota);
@@ -114,10 +116,20 @@ public class MascotaService {
             throw ApiException.conflicto("Esta mascota ya fue adoptada y sus datos no se pueden editar.");
         }
 
+        // Las fotos que la mascota ya tenía se aceptan aunque sean de antes de esta validación
+        List<MascotaFoto> fotosActuales = mascotaFotoRepository.findByMascotaIdOrderByOrdenAsc(id);
+        Set<String> fotosPrevias = new HashSet<>();
+        if (mascota.getFotoUrl() != null) {
+            fotosPrevias.add(mascota.getFotoUrl());
+        }
+        for (MascotaFoto foto : fotosActuales) {
+            fotosPrevias.add(foto.getFotoUrl());
+        }
+        verificarFotoPropia(req.fotoUrl(), mascota.getPublicadorId(), fotosPrevias);
+
         // null = el body no trae el campo y las fotos adicionales se quedan como están
-        List<String> fotos = limpiarFotos(req.fotosAdicionales(), req.fotoUrl());
-        if (fotos == null && Textos.textoOpcional(req.fotoUrl()) == null
-                && !mascotaFotoRepository.findByMascotaIdOrderByOrdenAsc(id).isEmpty()) {
+        List<String> fotos = limpiarFotos(req.fotosAdicionales(), req.fotoUrl(), mascota.getPublicadorId(), fotosPrevias);
+        if (fotos == null && Textos.textoOpcional(req.fotoUrl()) == null && !fotosActuales.isEmpty()) {
             // Quitar la portada dejaría fotos adicionales sin foto principal
             throw ApiException.badRequest(MENSAJE_SIN_PORTADA);
         }
@@ -197,10 +209,27 @@ public class MascotaService {
     }
 
     /*
-     * Prepara la lista de fotos adicionales: quita vacías y repetidas (también la portada)
-     * y valida cantidad, URL y que exista foto principal. Devuelve null si la lista no vino.
+     * Una foto es "propia" si la subió nuestro endpoint POST /api/uploads/mascota a la carpeta
+     * del publicador de la mascota (ahí se revisa que tenga un perro o gato). Así nadie se salta
+     * esa revisión pegando la URL de otra imagen, de una foto de perfil o de otro publicador.
+     * Las que la mascota ya tenía guardadas (fotosPrevias) también se aceptan.
      */
-    private List<String> limpiarFotos(List<String> recibidas, String portada) {
+    private void verificarFotoPropia(String url, Long publicadorId, Set<String> fotosPrevias) {
+        String limpia = Textos.textoOpcional(url);
+        if (limpia == null || fotosPrevias.contains(limpia)) {
+            return;
+        }
+        String prefijo = prefijoBucket + publicadorId + "/";
+        if (!limpia.startsWith(prefijo) || !limpia.substring(prefijo.length()).matches(PATRON_ARCHIVO_SUBIDO)) {
+            throw ApiException.badRequest(MENSAJE_FOTO_EXTERNA);
+        }
+    }
+
+    /*
+     * Prepara la lista de fotos adicionales: quita vacías y repetidas (también la portada)
+     * y valida cantidad, origen y que exista foto principal. Devuelve null si la lista no vino.
+     */
+    private List<String> limpiarFotos(List<String> recibidas, String portada, Long publicadorId, Set<String> fotosPrevias) {
         if (recibidas == null) {
             return null;
         }
@@ -219,9 +248,7 @@ public class MascotaService {
             throw ApiException.badRequest("Puedes agregar hasta 5 fotos adicionales.");
         }
         for (String url : fotos) {
-            if (!url.startsWith(prefijoFotos) || url.length() > 255) {
-                throw ApiException.badRequest("Una de las fotos no es válida.");
-            }
+            verificarFotoPropia(url, publicadorId, fotosPrevias);
         }
         if (!fotos.isEmpty() && portadaLimpia == null) {
             throw ApiException.badRequest(MENSAJE_SIN_PORTADA);

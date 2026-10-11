@@ -52,10 +52,6 @@ public class MascotaFoto {
         this.fotoUrl = fotoUrl;
     }
 
-    public Integer getOrden() {
-        return orden;
-    }
-
     public void setOrden(Integer orden) {
         this.orden = orden;
     }

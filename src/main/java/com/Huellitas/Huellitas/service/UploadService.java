@@ -32,14 +32,20 @@ public class UploadService {
     private static final String TIPO_PNG = "image/png";
     private static final String TIPO_WEBP = "image/webp";
 
+    private static final String MENSAJE_SIN_MASCOTA =
+            "No detectamos un perro o gato en la foto. Elige otra donde se vea bien a la mascota, con buena luz.";
+
     private final RestClient restClient = RestClient.create();
+    private final DeteccionMascotaService deteccionMascotaService;
     private final String supabaseUrl;
     private final String serviceKey;
     private final String bucket;
 
-    public UploadService(@Value("${app.supabase.url}") String supabaseUrl,
+    public UploadService(DeteccionMascotaService deteccionMascotaService,
+                         @Value("${app.supabase.url}") String supabaseUrl,
                          @Value("${app.supabase.service-key:}") String serviceKey,
                          @Value("${app.supabase.bucket}") String bucket) {
+        this.deteccionMascotaService = deteccionMascotaService;
         this.supabaseUrl = supabaseUrl.replaceAll("/+$", "");
         // Sin clave, la subida queda deshabilitada (responde 503)
         if (serviceKey == null) {
@@ -50,18 +56,18 @@ public class UploadService {
         this.bucket = bucket;
     }
 
-    // Fotos de mascotas: carpeta del publicador
+    // Fotos de mascotas: carpeta del publicador. Deben tener un perro o gato.
     public String subirFotoMascota(MultipartFile archivo, UsuarioAutenticado publicador) {
-        return subirImagen(archivo, String.valueOf(publicador.id()));
+        return subirImagen(archivo, String.valueOf(publicador.id()), true);
     }
 
-    // Fotos de perfil: carpeta perfiles/{usuarioId}
+    // Fotos de perfil: carpeta perfiles/{usuarioId}. Es la foto de una persona: no se busca mascota.
     public String subirFotoPerfil(MultipartFile archivo, UsuarioAutenticado usuario) {
-        return subirImagen(archivo, "perfiles/" + usuario.id());
+        return subirImagen(archivo, "perfiles/" + usuario.id(), false);
     }
 
     // Valida la imagen, la sube a la carpeta indicada y devuelve su URL pública
-    private String subirImagen(MultipartFile archivo, String carpeta) {
+    private String subirImagen(MultipartFile archivo, String carpeta, boolean exigirMascota) {
         if (serviceKey.isEmpty()) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "La subida de fotos no está configurada");
         }
@@ -83,6 +89,11 @@ public class UploadService {
         String tipo = detectarTipo(bytes);
         if (tipo == null || !tipo.equalsIgnoreCase(archivo.getContentType())) {
             throw ApiException.badRequest("Formato de imagen no válido");
+        }
+
+        // Antes de guardar: si no hay perro o gato, el archivo nunca llega a Supabase
+        if (exigirMascota && !deteccionMascotaService.contieneMascota(bytes)) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, MENSAJE_SIN_MASCOTA);
         }
 
         // El nombre original se ignora: carpeta + nombre aleatorio

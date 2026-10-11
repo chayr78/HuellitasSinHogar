@@ -140,10 +140,6 @@ public class Usuario {
         this.fechaRegistro = fechaRegistro;
     }
 
-    public String getResetTokenHash() {
-        return resetTokenHash;
-    }
-
     public void setResetTokenHash(String resetTokenHash) {
         this.resetTokenHash = resetTokenHash;
     }

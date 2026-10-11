@@ -27,15 +27,6 @@ public class MascotaController {
         this.mascotaService = mascotaService;
     }
 
-    // GET /api/mascotas
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<MascotaResponse>>> obtenerTodas() {
-        List<MascotaResponse> mascotas = mascotaService.obtenerTodas();
-        return ResponseEntity.ok(
-                ApiResponse.ok("Se encontraron " + mascotas.size() + " mascota(s)", mascotas)
-        );
-    }
-
     // GET /api/mascotas/disponibles  (catálogo público, RF-07)
     @GetMapping("/disponibles")
     public ResponseEntity<ApiResponse<List<MascotaResponse>>> obtenerDisponibles() {
@@ -49,15 +40,6 @@ public class MascotaController {
     public ResponseEntity<ApiResponse<List<MascotaResponse>>> obtenerAdoptados() {
         return ResponseEntity.ok(
                 ApiResponse.ok("Mascotas adoptadas", mascotaService.obtenerAdoptados())
-        );
-    }
-
-    // GET /api/mascotas/filtrar?tamano=CHICO  (RF-08)
-    @GetMapping("/filtrar")
-    public ResponseEntity<ApiResponse<List<MascotaResponse>>> filtrarPorTamano(
-            @RequestParam String tamano) {
-        return ResponseEntity.ok(
-                ApiResponse.ok("Mascotas filtradas por tamaño: " + tamano, mascotaService.filtrarPorTamano(tamano))
         );
     }
 

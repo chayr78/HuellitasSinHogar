@@ -68,6 +68,20 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- ONNX Runtime: corre el modelo que detecta perros y gatos en las fotos -->
+		<dependency>
+			<groupId>com.microsoft.onnxruntime</groupId>
+			<artifactId>onnxruntime</artifactId>
+			<version>1.31.0</version>
+		</dependency>
+
+		<!-- Lectura de imágenes WebP con ImageIO (Java solo trae JPEG y PNG) -->
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>3.15.3</version>
+		</dependency>
+
 		<!-- Tests -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

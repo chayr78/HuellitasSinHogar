@@ -14,9 +14,6 @@ public interface MascotaRepository extends JpaRepository<Mascota, Long> {
     // Catálogo público filtrado por estado (ej. solo "DISPONIBLE")
     List<Mascota> findByEstadoOrderByFechaPublicacionDesc(String estado);
 
-    // Filtros combinados para el catálogo (tamaño + estado)
-    List<Mascota> findByTamanoAndEstadoOrderByFechaPublicacionDesc(String tamano, String estado);
-
     // Mascotas publicadas por un usuario específico (panel del publicador)
     List<Mascota> findByPublicadorIdOrderByFechaPublicacionDesc(Long publicadorId);
 }
