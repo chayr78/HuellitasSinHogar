@@ -1,5 +1,7 @@
 package com.Huellitas.Huellitas.dto;
 
+import com.Huellitas.Huellitas.service.Textos;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -25,6 +27,7 @@ public record RegistroRequest(
         String password,
 
         @Size(max = 20, message = "El teléfono no puede superar 20 caracteres")
+        @Pattern(regexp = Textos.PATRON_TELEFONO, message = Textos.MENSAJE_TELEFONO)
         String telefono,
 
         @NotBlank(message = "El rol es obligatorio")

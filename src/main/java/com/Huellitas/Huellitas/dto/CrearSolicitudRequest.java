@@ -1,5 +1,7 @@
 package com.Huellitas.Huellitas.dto;
 
+import com.Huellitas.Huellitas.service.Textos;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,10 +19,12 @@ public record CrearSolicitudRequest(
 
         @NotBlank(message = "El nombre de contacto es obligatorio")
         @Size(max = 150, message = "El nombre no puede superar 150 caracteres")
+        @Pattern(regexp = Textos.PATRON_NOMBRE, message = Textos.MENSAJE_NOMBRE)
         String nombreContacto,
 
         @NotBlank(message = "El teléfono de contacto es obligatorio")
         @Size(max = 20, message = "El teléfono no puede superar 20 caracteres")
+        @Pattern(regexp = Textos.PATRON_TELEFONO, message = Textos.MENSAJE_TELEFONO)
         String telefonoContacto,
 
         @NotBlank(message = "El correo de contacto es obligatorio")

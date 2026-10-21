@@ -1,5 +1,7 @@
 package com.Huellitas.Huellitas.dto;
 
+import com.Huellitas.Huellitas.service.Textos;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,6 +16,7 @@ import java.util.List;
 public record MascotaRequest(
         @NotBlank(message = "El nombre es obligatorio")
         @Size(max = 80, message = "El nombre no puede superar 80 caracteres")
+        @Pattern(regexp = Textos.PATRON_NOMBRE, message = Textos.MENSAJE_NOMBRE)
         String nombre,
 
         @NotBlank(message = "La especie es obligatoria")

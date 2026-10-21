@@ -78,6 +78,7 @@ public class AuthService {
         if (esPublicador && req.tipoPublicador() == null) {
             throw ApiException.badRequest("Indica si publicas como REFUGIO o PARTICULAR");
         }
+        validarNombre(req.nombre(), esPublicador ? req.tipoPublicador() : null);
         validarLongitudPassword(req.password());
 
         Usuario usuario = new Usuario();
@@ -137,6 +138,7 @@ public class AuthService {
         if (foto != null && !foto.startsWith(prefijoFotos)) {
             throw ApiException.badRequest("La foto de perfil debe subirse desde la aplicación");
         }
+        validarNombre(req.nombre(), usuario.getTipoPublicador());
 
         usuario.setNombre(req.nombre().trim());
         usuario.setTelefono(Textos.textoOpcional(req.telefono()));
@@ -214,6 +216,15 @@ public class AuthService {
     private static void validarLongitudPassword(String password) {
         if (passwordDemasiadoLarga(password)) {
             throw ApiException.badRequest("La contraseña es demasiado larga; usa menos caracteres especiales o acentos");
+        }
+    }
+
+    // Solo letras para personas; los refugios también pueden usar números
+    private static void validarNombre(String nombre, String tipoPublicador) {
+        boolean esRefugio = Constantes.TIPO_REFUGIO.equals(tipoPublicador);
+        String patron = esRefugio ? Textos.PATRON_NOMBRE_REFUGIO : Textos.PATRON_NOMBRE;
+        if (!nombre.trim().matches(patron)) {
+            throw ApiException.badRequest(esRefugio ? Textos.MENSAJE_NOMBRE_REFUGIO : Textos.MENSAJE_NOMBRE);
         }
     }
 

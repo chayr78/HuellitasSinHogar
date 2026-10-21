@@ -15,6 +15,9 @@ public final class Constantes {
     public static final String ROL_ADOPTANTE = "ADOPTANTE";
     public static final String ROL_ADMINISTRADOR = "ADMINISTRADOR";
 
+    // ---------- Tipos de publicador (columna usuario.tipo_publicador) ----------
+    public static final String TIPO_REFUGIO = "REFUGIO";
+
     // ---------- Estados de una mascota (columna mascota.estado) ----------
     public static final String MASCOTA_DISPONIBLE = "DISPONIBLE";
     public static final String MASCOTA_EN_PROCESO = "EN_PROCESO";

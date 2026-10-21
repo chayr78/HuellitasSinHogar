@@ -1,6 +1,9 @@
 package com.Huellitas.Huellitas.dto;
 
+import com.Huellitas.Huellitas.service.Textos;
+
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /*
@@ -13,6 +16,7 @@ public record ActualizarPerfilRequest(
         String nombre,
 
         @Size(max = 20, message = "El teléfono no puede superar 20 caracteres")
+        @Pattern(regexp = Textos.PATRON_TELEFONO, message = Textos.MENSAJE_TELEFONO)
         String telefono,
 
         // El frontend envía el nombre de un municipio del Estado de México (p. ej. "Tecámac")
