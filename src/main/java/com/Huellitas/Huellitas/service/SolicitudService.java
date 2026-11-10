@@ -13,8 +13,6 @@ import com.Huellitas.Huellitas.modelo.Usuario;
 import com.Huellitas.Huellitas.repository.MascotaRepository;
 import com.Huellitas.Huellitas.repository.SolicitudRepository;
 import com.Huellitas.Huellitas.repository.UsuarioRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -31,8 +29,6 @@ import java.util.Map;
  */
 @Service
 public class SolicitudService {
-
-    private static final Logger log = LoggerFactory.getLogger(SolicitudService.class);
 
     // Nombre del índice único de sql/indice_solicitud_activa.sql
     private static final String INDICE_SOLICITUD_ACTIVA = "ux_solicitud_activa";
@@ -114,8 +110,11 @@ public class SolicitudService {
 
         SolicitudAdopcion guardada = guardarSolicitudActiva(solicitud,
                 MENSAJE_YA_ENVIADA);
-        notificarPublicador(mascota, guardada);
-        boolean correoEnviado = confirmarAlAdoptante(mascota, guardada);
+        // Correos en segundo plano (@Async): la respuesta no espera a Brevo y un fallo no afecta la solicitud
+        emailService.enviarConfirmacionAdoptante(guardada);
+        emailService.enviarSolicitudPublicador(guardada);
+        // Solo dice que el correo está activado y en camino, no que ya llegó
+        boolean correoEnCamino = emailService.estaActivo();
 
         // El adoptante que acaba de enviar la solicitud recibe el WhatsApp del publicador (null si no tiene)
         Usuario publicador = usuarioRepository.findById(mascota.getPublicadorId()).orElse(null);
@@ -124,7 +123,7 @@ public class SolicitudService {
         if (publicador != null) {
             whatsapp = Textos.soloDigitos(publicador.getTelefono());
         }
-        return toResponse(guardada, mascota, publicador, usuarioAdoptante, whatsapp, correoEnviado);
+        return toResponse(guardada, mascota, publicador, usuarioAdoptante, whatsapp, correoEnCamino);
     }
 
     // Copia los datos del formulario a una solicitud nueva en estado PENDIENTE
@@ -148,49 +147,6 @@ public class SolicitudService {
         solicitud.setLeidaPublicador(false);
         solicitud.setLeidaAdoptante(true);
         return solicitud;
-    }
-
-    // Avisa por correo al publicador. Un fallo aquí nunca debe romper la creación de la solicitud.
-    private void notificarPublicador(Mascota mascota, SolicitudAdopcion solicitud) {
-        try {
-            Usuario publicador = usuarioRepository.findById(mascota.getPublicadorId()).orElse(null);
-            if (publicador == null) {
-                return;
-            }
-            String asunto = "Nueva solicitud para " + mascota.getNombre();
-            String cuerpo = "Hola " + publicador.getNombre() + ",\n\n"
-                    + solicitud.getNombreContacto() + " envió una solicitud para adoptar a "
-                    + mascota.getNombre() + ".\n"
-                    + "Revísala en tu panel de Huellitas sin Hogar.";
-            boolean enviado = emailService.enviar(publicador.getCorreo(), asunto, cuerpo);
-            if (!enviado) {
-                log.info("[DEV] Aviso al publicador {}: {} envió una solicitud para {}",
-                        publicador.getId(), solicitud.getNombreContacto(), mascota.getNombre());
-            }
-        } catch (RuntimeException e) {
-            log.warn("No se pudo notificar al publicador de la solicitud {}: {}", solicitud.getId(), e.getMessage());
-        }
-    }
-
-    // Confirma por correo al adoptante (al correo que escribió en la solicitud). Devuelve true si se envió;
-    // igual que el aviso al publicador, un fallo aquí nunca rompe la creación de la solicitud.
-    private boolean confirmarAlAdoptante(Mascota mascota, SolicitudAdopcion solicitud) {
-        try {
-            String asunto = "Recibimos tu solicitud para adoptar a " + mascota.getNombre();
-            String cuerpo = "Hola " + solicitud.getNombreContacto() + ",\n\n"
-                    + "Tu solicitud para adoptar a " + mascota.getNombre() + " se envió correctamente.\n"
-                    + "Quien la publicó la revisará y se pondrá en contacto contigo.\n"
-                    + "Puedes ver cómo va en \"Mis solicitudes\" de Huellitas sin Hogar.";
-            boolean enviado = emailService.enviar(solicitud.getCorreoContacto(), asunto, cuerpo);
-            if (!enviado) {
-                log.info("[DEV] Confirmación al adoptante {}: solicitud para {}",
-                        solicitud.getAdoptanteId(), mascota.getNombre());
-            }
-            return enviado;
-        } catch (RuntimeException e) {
-            log.warn("No se pudo confirmar al adoptante la solicitud {}: {}", solicitud.getId(), e.getMessage());
-            return false;
-        }
     }
 
     // ---------- Compatibilidad ----------
@@ -280,8 +236,13 @@ public class SolicitudService {
 
         solicitud.setEstado(nuevoEstado);
         solicitud.setLeidaAdoptante(false); // el adoptante aún no ha visto este cambio
-        return toResponse(guardarSolicitudActiva(solicitud,
-                MENSAJE_OTRA_ACTIVA));
+        SolicitudAdopcion guardada = guardarSolicitudActiva(solicitud, MENSAJE_OTRA_ACTIVA);
+
+        // Aviso por correo al adoptante (en segundo plano) cuando lo contactan o se cierra su solicitud
+        if (Constantes.SOLICITUD_CONTACTADA.equals(nuevoEstado) || Constantes.SOLICITUD_CERRADA.equals(nuevoEstado)) {
+            emailService.enviarCambioEstadoAdoptante(guardada);
+        }
+        return toResponse(guardada);
     }
 
     // Reabrir una solicitud cerrada no debe dejar dos activas ni reactivar una mascota ya adoptada

@@ -57,7 +57,7 @@ class SolicitudServiceWhatsappTest {
                 solicitudRepository, mock(MascotaFotoRepository.class),
                 "https://ejemplo.supabase.co/", "mascotas");
         service = new SolicitudService(solicitudRepository, mascotaRepository, usuarioRepository,
-                mascotaService, new EmailService(false, "", "", "Huellitas sin Hogar"));
+                mascotaService, mock(EmailService.class));
     }
 
     private void publicadorConTelefono(String telefono) {

@@ -17,34 +17,36 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /*
- * Al crear una solicitud se le envía un correo de confirmación al adoptante, al correo que escribió
- * en el formulario. La respuesta dice si salió, para que el frontend no prometa un correo que no llegó.
+ * Al crear una solicitud se piden los dos correos (adoptante y publicador) y, al cambiarla a
+ * CONTACTADA o CERRADA, el aviso al adoptante. EmailService es simulado: aquí solo se revisa
+ * que SolicitudService lo llame; el envío real a Brevo corre en segundo plano (@Async).
  */
 class SolicitudServiceCorreoTest {
 
     private static final UsuarioAutenticado ADOPTANTE = new UsuarioAutenticado(20L, "a@huellitas.test", Constantes.ROL_ADOPTANTE);
+    private static final UsuarioAutenticado PUBLICADOR = new UsuarioAutenticado(7L, "p@huellitas.test", Constantes.ROL_PUBLICADOR);
 
     private EmailService emailService;
+    private SolicitudRepository solicitudRepository;
     private SolicitudService service;
 
     @BeforeEach
     void preparar() {
         MascotaRepository mascotaRepository = mock(MascotaRepository.class);
-        SolicitudRepository solicitudRepository = mock(SolicitudRepository.class);
+        solicitudRepository = mock(SolicitudRepository.class);
         UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
         emailService = mock(EmailService.class);
 
         Mascota mascota = new Mascota();
         mascota.setId(1L);
         mascota.setNombre("Rocky");
-        mascota.setPublicadorId(7L);
+        mascota.setPublicadorId(PUBLICADOR.id());
         mascota.setEstado(Constantes.MASCOTA_DISPONIBLE);
         when(mascotaRepository.findById(1L)).thenReturn(Optional.of(mascota));
         when(solicitudRepository.saveAndFlush(any(SolicitudAdopcion.class))).thenAnswer(inv -> {
@@ -65,31 +67,49 @@ class SolicitudServiceCorreoTest {
                 null, null, null, null, null, null);
     }
 
+    private SolicitudAdopcion existeSolicitud(String estado) {
+        SolicitudAdopcion solicitud = new SolicitudAdopcion();
+        solicitud.setId(100L);
+        solicitud.setMascotaId(1L);
+        solicitud.setAdoptanteId(ADOPTANTE.id());
+        solicitud.setEstado(estado);
+        when(solicitudRepository.findById(100L)).thenReturn(Optional.of(solicitud));
+        return solicitud;
+    }
+
     @Test
-    void siElCorreoSaleLaRespuestaLoDice() {
-        when(emailService.enviar(eq("ana@correo.com"), anyString(), anyString())).thenReturn(true);
+    void crearPideLosDosCorreos() {
+        service.crear(pedido(), ADOPTANTE);
+        verify(emailService).enviarConfirmacionAdoptante(any(SolicitudAdopcion.class));
+        verify(emailService).enviarSolicitudPublicador(any(SolicitudAdopcion.class));
+    }
+
+    @Test
+    void laRespuestaDiceSiElCorreoVaEnCamino() {
+        when(emailService.estaActivo()).thenReturn(true);
         assertEquals(Boolean.TRUE, service.crear(pedido(), ADOPTANTE).correoConfirmacionEnviado());
-        verify(emailService).enviar(eq("ana@correo.com"), eq("Recibimos tu solicitud para adoptar a Rocky"), anyString());
-    }
 
-    @Test
-    void siElCorreoNoSaleLaSolicitudSeCreaIgual() {
-        when(emailService.enviar(anyString(), anyString(), anyString())).thenReturn(false);
-        assertEquals(Boolean.FALSE, service.crear(pedido(), ADOPTANTE).correoConfirmacionEnviado());
-    }
-
-    @Test
-    void siEnviarLanzaExcepcionLaSolicitudSeCreaIgual() {
-        when(emailService.enviar(anyString(), anyString(), anyString())).thenThrow(new IllegalStateException("caído"));
+        when(emailService.estaActivo()).thenReturn(false);
         assertEquals(Boolean.FALSE, service.crear(pedido(), ADOPTANTE).correoConfirmacionEnviado());
     }
 
     @Test
     void otrasRespuestasNoIncluyenElAviso() {
-        SolicitudAdopcion solicitud = new SolicitudAdopcion();
-        solicitud.setId(100L);
-        solicitud.setMascotaId(1L);
-        solicitud.setAdoptanteId(ADOPTANTE.id());
+        SolicitudAdopcion solicitud = existeSolicitud(Constantes.SOLICITUD_PENDIENTE);
         assertNull(service.toResponse(solicitud).correoConfirmacionEnviado());
+    }
+
+    @Test
+    void contactadaYCerradaAvisanAlAdoptante() {
+        existeSolicitud(Constantes.SOLICITUD_PENDIENTE);
+        service.cambiarEstado(100L, Constantes.SOLICITUD_CONTACTADA, PUBLICADOR);
+        verify(emailService).enviarCambioEstadoAdoptante(any(SolicitudAdopcion.class));
+    }
+
+    @Test
+    void volverAPendienteNoAvisa() {
+        existeSolicitud(Constantes.SOLICITUD_CONTACTADA);
+        service.cambiarEstado(100L, Constantes.SOLICITUD_PENDIENTE, PUBLICADOR);
+        verify(emailService, never()).enviarCambioEstadoAdoptante(any(SolicitudAdopcion.class));
     }
 }

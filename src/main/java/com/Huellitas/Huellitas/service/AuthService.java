@@ -12,8 +12,6 @@ import com.Huellitas.Huellitas.exception.ApiException;
 import com.Huellitas.Huellitas.modelo.Constantes;
 import com.Huellitas.Huellitas.modelo.Usuario;
 import com.Huellitas.Huellitas.repository.UsuarioRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,8 +31,6 @@ import java.util.Locale;
  */
 @Service
 public class AuthService {
-
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private static final int MINUTOS_TOKEN_RESET = 30;
     // BCrypt solo usa los primeros 72 bytes; Spring Security rechaza contraseñas más largas
@@ -180,17 +176,9 @@ public class AuthService {
         usuario.setResetTokenExpira(LocalDateTime.now().plusMinutes(MINUTOS_TOKEN_RESET));
         usuarioRepository.save(usuario);
 
+        // Se envía en segundo plano; el enlace lleva el token, así que nunca se escribe en el log
         String enlace = frontendUrl + "/restablecer?token=" + token;
-        String cuerpo = "Hola " + usuario.getNombre() + ",\n\n"
-                + "Recibimos una solicitud para restablecer tu contraseña en Huellitas sin Hogar.\n"
-                + "Abre este enlace (válido por " + MINUTOS_TOKEN_RESET + " minutos):\n\n"
-                + enlace + "\n\n"
-                + "Si no fuiste tú, ignora este correo.";
-
-        boolean enviado = emailService.enviar(usuario.getCorreo(), "Restablece tu contraseña", cuerpo);
-        if (!enviado) {
-            log.info("[DEV] Enlace de restablecimiento: {}", enlace);
-        }
+        emailService.enviarRestablecimiento(usuario.getCorreo(), usuario.getNombre(), enlace, MINUTOS_TOKEN_RESET);
     }
 
     @Transactional
