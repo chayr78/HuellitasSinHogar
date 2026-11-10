@@ -142,7 +142,7 @@ public class MascotaService {
         return toResponse(guardada);
     }
 
-    // RF-05. Al pasar a ADOPTADO se cierran las solicitudes que seguían activas.
+    // RF-05. Al pasar a ADOPTADO se cierran las solicitudes que seguían activas y ya no se puede volver atrás.
     @Transactional
     public MascotaResponse cambiarEstado(Long id, String estado, UsuarioAutenticado usuario) {
         String nuevoEstado = estado.trim().toUpperCase(Locale.ROOT);
@@ -152,6 +152,11 @@ public class MascotaService {
 
         Mascota mascota = buscar(id);
         verificarDuenoOAdmin(mascota, usuario, MENSAJE_SOLO_DUENO);
+        // Una mascota adoptada queda como registro histórico (también para el administrador)
+        boolean estabaAdoptada = Constantes.MASCOTA_ADOPTADO.equals(mascota.getEstado());
+        if (estabaAdoptada && !Constantes.MASCOTA_ADOPTADO.equals(nuevoEstado)) {
+            throw ApiException.conflicto("Esta mascota ya fue adoptada y su estado no se puede cambiar.");
+        }
         mascota.setEstado(nuevoEstado);
 
         if (Constantes.MASCOTA_ADOPTADO.equals(nuevoEstado)) {
