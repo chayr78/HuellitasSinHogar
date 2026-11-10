@@ -32,5 +32,8 @@ public record SolicitudResponse(
         String adoptanteFotoUrl,
         // Teléfono (solo dígitos) del publicador. Solo va en la respuesta de POST /api/solicitudes,
         // que recibe el adoptante dueño de la solicitud; en las demás respuestas es null.
-        String whatsappPublicador
+        String whatsappPublicador,
+        // True si se le envió al adoptante el correo de confirmación. Igual que whatsappPublicador,
+        // solo va en la respuesta de POST /api/solicitudes; en las demás es null.
+        Boolean correoConfirmacionEnviado
 ) {}
