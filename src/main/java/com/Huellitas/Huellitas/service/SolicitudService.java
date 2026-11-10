@@ -115,7 +115,15 @@ public class SolicitudService {
         SolicitudAdopcion guardada = guardarSolicitudActiva(solicitud,
                 MENSAJE_YA_ENVIADA);
         notificarPublicador(mascota, guardada);
-        return toResponse(guardada);
+
+        // El adoptante que acaba de enviar la solicitud recibe el WhatsApp del publicador (null si no tiene)
+        Usuario publicador = usuarioRepository.findById(mascota.getPublicadorId()).orElse(null);
+        Usuario usuarioAdoptante = usuarioRepository.findById(adoptante.id()).orElse(null);
+        String whatsapp = null;
+        if (publicador != null) {
+            whatsapp = Textos.soloDigitos(publicador.getTelefono());
+        }
+        return toResponse(guardada, mascota, publicador, usuarioAdoptante, whatsapp);
     }
 
     // Copia los datos del formulario a una solicitud nueva en estado PENDIENTE
@@ -332,7 +340,7 @@ public class SolicitudService {
             publicador = usuarioRepository.findById(mascota.getPublicadorId()).orElse(null);
         }
         Usuario adoptante = usuarioRepository.findById(solicitud.getAdoptanteId()).orElse(null);
-        return toResponse(solicitud, mascota, publicador, adoptante);
+        return toResponse(solicitud, mascota, publicador, adoptante, null);
     }
 
     // Versión para listas: busca mascotas, publicadores y adoptantes de toda la lista en tres consultas
@@ -378,14 +386,16 @@ public class SolicitudService {
                 publicador = publicadores.get(mascota.getPublicadorId());
             }
             Usuario adoptante = adoptantes.get(solicitud.getAdoptanteId());
-            respuesta.add(toResponse(solicitud, mascota, publicador, adoptante));
+            respuesta.add(toResponse(solicitud, mascota, publicador, adoptante, null));
         }
         return respuesta;
     }
 
-    // mascota, publicador y adoptante pueden ser null si ya no existen
+    // mascota, publicador y adoptante pueden ser null si ya no existen.
+    // whatsappPublicador solo se pasa al responder al adoptante que creó la solicitud.
     private static SolicitudResponse toResponse(SolicitudAdopcion s, Mascota mascota,
-                                                Usuario publicador, Usuario adoptante) {
+                                                Usuario publicador, Usuario adoptante,
+                                                String whatsappPublicador) {
         String mascotaNombre = null;
         String mascotaFotoUrl = null;
         if (mascota != null) {
@@ -425,7 +435,8 @@ public class SolicitudService {
                 s.getLeidaPublicador(),
                 s.getLeidaAdoptante(),
                 adoptanteNombre,
-                adoptanteFotoUrl
+                adoptanteFotoUrl,
+                whatsappPublicador
         );
     }
 }

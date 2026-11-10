@@ -29,5 +29,8 @@ public record SolicitudResponse(
         Boolean leidaPublicador,
         Boolean leidaAdoptante,
         String adoptanteNombre,
-        String adoptanteFotoUrl
+        String adoptanteFotoUrl,
+        // Teléfono (solo dígitos) del publicador. Solo va en la respuesta de POST /api/solicitudes,
+        // que recibe el adoptante dueño de la solicitud; en las demás respuestas es null.
+        String whatsappPublicador
 ) {}

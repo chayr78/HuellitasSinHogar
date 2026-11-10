@@ -92,7 +92,7 @@ public class AuthService {
         usuario.setNombre(req.nombre().trim());
         usuario.setCorreo(correo);
         usuario.setPasswordHash(passwordEncoder.encode(req.password()));
-        usuario.setTelefono(Textos.textoOpcional(req.telefono()));
+        usuario.setTelefono(Textos.soloDigitos(req.telefono()));
         usuario.setRol(req.rol());
         if (esPublicador) {
             usuario.setTipoPublicador(req.tipoPublicador());
@@ -157,7 +157,7 @@ public class AuthService {
         validarNombre(req.nombre(), usuario.getTipoPublicador());
 
         usuario.setNombre(req.nombre().trim());
-        usuario.setTelefono(Textos.textoOpcional(req.telefono()));
+        usuario.setTelefono(Textos.soloDigitos(req.telefono()));
         usuario.setUbicacion(Textos.textoOpcional(req.ubicacion()));
         usuario.setFotoPerfilUrl(foto);
         return UsuarioResponse.desde(usuarioRepository.save(usuario));

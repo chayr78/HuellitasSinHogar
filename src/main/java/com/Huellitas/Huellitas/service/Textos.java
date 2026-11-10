@@ -30,6 +30,17 @@ public final class Textos {
     // Nombre que UploadService le da a cada archivo: UUID aleatorio + extensión
     public static final String PATRON_ARCHIVO_SUBIDO = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
 
+    // Teléfono ya validado: se guarda solo con dígitos (sin +, espacios ni guiones) para usarlo directo en WhatsApp.
+    // Vacío o solo espacios se guarda como null
+    public static String soloDigitos(String telefono) {
+        String limpio = textoOpcional(telefono);
+        if (limpio == null) {
+            return null;
+        }
+        String digitos = limpio.replaceAll("\\D", "");
+        return digitos.isEmpty() ? null : digitos;
+    }
+
     // Campo opcional: vacío o solo espacios se guarda como null; si no, sin espacios en los extremos
     public static String textoOpcional(String texto) {
         if (texto == null || texto.isBlank()) {

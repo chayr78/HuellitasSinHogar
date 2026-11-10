@@ -35,4 +35,12 @@ public record UsuarioResponse(
                 u.getFotoPerfilUrl()
         );
     }
+
+    // Para listados de otros usuarios (panel de administración): el teléfono no se expone
+    public static UsuarioResponse desdeSinTelefono(Usuario u) {
+        UsuarioResponse completo = desde(u);
+        return new UsuarioResponse(completo.id(), completo.nombre(), completo.correo(), null,
+                completo.rol(), completo.tipoPublicador(), completo.ubicacion(), completo.activo(),
+                completo.fechaRegistro(), completo.fotoPerfilUrl());
+    }
 }

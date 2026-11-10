@@ -26,7 +26,7 @@ public class AdminService {
     public List<UsuarioResponse> obtenerUsuarios() {
         List<UsuarioResponse> respuesta = new ArrayList<>();
         for (Usuario usuario : usuarioRepository.findAllByOrderByFechaRegistroDesc()) {
-            respuesta.add(UsuarioResponse.desde(usuario));
+            respuesta.add(UsuarioResponse.desdeSinTelefono(usuario));
         }
         return respuesta;
     }
@@ -46,6 +46,6 @@ public class AdminService {
         }
 
         usuario.setActivo(activo);
-        return UsuarioResponse.desde(usuarioRepository.save(usuario));
+        return UsuarioResponse.desdeSinTelefono(usuarioRepository.save(usuario));
     }
 }
