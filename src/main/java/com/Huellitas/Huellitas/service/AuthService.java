@@ -45,9 +45,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final IntentosLogin intentosLogin;
     private final String frontendUrl;
-    // Prefijo que deben tener las fotos de perfil (Supabase Storage público)
-    private final String prefijoFotos;
+    // Carpeta pública de las fotos de perfil en Supabase Storage; cada usuario tiene la suya: {prefijo}{id}/
+    private final String prefijoFotosPerfil;
     private final SecureRandom random = new SecureRandom();
     // Hash contra el que se compara cuando el correo no existe, para que el login tarde lo mismo
     private final String hashFicticio;
@@ -56,14 +57,17 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        EmailService emailService,
+                       IntentosLogin intentosLogin,
                        @Value("${app.frontend-url}") String frontendUrl,
-                       @Value("${app.supabase.url}") String supabaseUrl) {
+                       @Value("${app.supabase.url}") String supabaseUrl,
+                       @Value("${app.supabase.bucket}") String bucket) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.intentosLogin = intentosLogin;
         this.frontendUrl = frontendUrl;
-        this.prefijoFotos = supabaseUrl.replaceAll("/+$", "") + "/storage/v1/object/public/";
+        this.prefijoFotosPerfil = supabaseUrl.replaceAll("/+$", "") + "/storage/v1/object/public/" + bucket + "/perfiles/";
         this.hashFicticio = passwordEncoder.encode("contraseña-ficticia-no-usable");
     }
 
@@ -77,6 +81,9 @@ public class AuthService {
         boolean esPublicador = Constantes.ROL_PUBLICADOR.equals(req.rol());
         if (esPublicador && req.tipoPublicador() == null) {
             throw ApiException.badRequest("Indica si publicas como REFUGIO o PARTICULAR");
+        }
+        if (esPublicador && Textos.textoOpcional(req.ubicacion()) == null) {
+            throw ApiException.badRequest("Indica el municipio donde se encuentran las mascotas");
         }
         validarNombre(req.nombre(), esPublicador ? req.tipoPublicador() : null);
         validarLongitudPassword(req.password());
@@ -99,16 +106,21 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest req) {
-        Usuario usuario = usuarioRepository.findByCorreo(normalizarCorreo(req.correo())).orElse(null);
+        String correo = normalizarCorreo(req.correo());
+        intentosLogin.verificar(correo);
+        Usuario usuario = usuarioRepository.findByCorreo(correo).orElse(null);
 
         if (usuario == null) {
             // Se compara igual para que la respuesta tarde lo mismo exista o no el correo
             passwordEncoder.matches(req.password(), hashFicticio);
+            intentosLogin.registrarFallo(correo);
             throw ApiException.noAutenticado(MENSAJE_LOGIN_INCORRECTO);
         }
         if (!passwordCoincide(req.password(), usuario.getPasswordHash())) {
+            intentosLogin.registrarFallo(correo);
             throw ApiException.noAutenticado(MENSAJE_LOGIN_INCORRECTO);
         }
+        intentosLogin.limpiar(correo);
         if (!Boolean.TRUE.equals(usuario.getActivo())) {
             throw ApiException.prohibido("Tu cuenta está desactivada. Contacta al administrador.");
         }
@@ -134,8 +146,12 @@ public class AuthService {
             throw ApiException.noEncontrado("Usuario no encontrado");
         }
 
+        // Solo una foto que este usuario subió a su carpeta (o la que ya tenía), no la de otra persona o mascota
         String foto = Textos.textoOpcional(req.fotoPerfilUrl());
-        if (foto != null && !foto.startsWith(prefijoFotos)) {
+        boolean esFotoActual = foto != null && foto.equals(usuario.getFotoPerfilUrl());
+        String prefijo = prefijoFotosPerfil + id + "/";
+        if (foto != null && !esFotoActual
+                && (!foto.startsWith(prefijo) || !foto.substring(prefijo.length()).matches(Textos.PATRON_ARCHIVO_SUBIDO))) {
             throw ApiException.badRequest("La foto de perfil debe subirse desde la aplicación");
         }
         validarNombre(req.nombre(), usuario.getTipoPublicador());
@@ -190,6 +206,8 @@ public class AuthService {
         usuario.setResetTokenHash(null);
         usuario.setResetTokenExpira(null);
         usuarioRepository.save(usuario);
+        // Con la contraseña nueva ya puede volver a intentar aunque estuviera bloqueado
+        intentosLogin.limpiar(usuario.getCorreo());
     }
 
     // ---------- Utilidades públicas (también las usa AdminInicializador) ----------

@@ -29,6 +29,7 @@ public record CrearSolicitudRequest(
 
         @NotBlank(message = "El correo de contacto es obligatorio")
         @Email(message = "El correo de contacto no tiene un formato válido")
+        @Pattern(regexp = Textos.PATRON_CORREO, message = "El correo de contacto no tiene un formato válido")
         @Size(max = 150, message = "El correo no puede superar 150 caracteres")
         String correoContacto,
 

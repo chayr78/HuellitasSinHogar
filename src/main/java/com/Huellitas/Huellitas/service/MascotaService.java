@@ -36,8 +36,6 @@ public class MascotaService {
     private static final int MAXIMO_FOTOS_ADICIONALES = 5;
     private static final String MENSAJE_SIN_PORTADA = "Primero elige la foto principal.";
     private static final String MENSAJE_FOTO_EXTERNA = "Las fotos deben subirse desde el formulario.";
-    // Nombre que UploadService le da a cada archivo: UUID aleatorio + extensión
-    private static final String PATRON_ARCHIVO_SUBIDO = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
 
     private final MascotaRepository mascotaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -220,7 +218,7 @@ public class MascotaService {
             return;
         }
         String prefijo = prefijoBucket + publicadorId + "/";
-        if (!limpia.startsWith(prefijo) || !limpia.substring(prefijo.length()).matches(PATRON_ARCHIVO_SUBIDO)) {
+        if (!limpia.startsWith(prefijo) || !limpia.substring(prefijo.length()).matches(Textos.PATRON_ARCHIVO_SUBIDO)) {
             throw ApiException.badRequest(MENSAJE_FOTO_EXTERNA);
         }
     }

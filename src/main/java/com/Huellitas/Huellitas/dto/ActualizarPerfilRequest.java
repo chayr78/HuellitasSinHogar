@@ -15,6 +15,7 @@ public record ActualizarPerfilRequest(
         @Size(max = 150, message = "El nombre no puede superar 150 caracteres")
         String nombre,
 
+        @NotBlank(message = "El teléfono es obligatorio")
         @Size(max = 20, message = "El teléfono no puede superar 20 caracteres")
         @Pattern(regexp = Textos.PATRON_TELEFONO, message = Textos.MENSAJE_TELEFONO)
         String telefono,

@@ -18,14 +18,17 @@ public record RegistroRequest(
         String nombre,
 
         @NotBlank(message = "El correo es obligatorio")
-        @Email(message = "El correo no tiene un formato válido")
+        @Email(message = Textos.MENSAJE_CORREO)
+        @Pattern(regexp = Textos.PATRON_CORREO, message = Textos.MENSAJE_CORREO)
         @Size(max = 150, message = "El correo no puede superar 150 caracteres")
         String correo,
 
         @NotBlank(message = "La contraseña es obligatoria")
         @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres")
+        @Pattern(regexp = Textos.PATRON_PASSWORD, message = Textos.MENSAJE_PASSWORD)
         String password,
 
+        @NotBlank(message = "El teléfono es obligatorio")
         @Size(max = 20, message = "El teléfono no puede superar 20 caracteres")
         @Pattern(regexp = Textos.PATRON_TELEFONO, message = Textos.MENSAJE_TELEFONO)
         String telefono,
