@@ -48,7 +48,7 @@ public class EmailService {
     private final MascotaRepository mascotaRepository;
     private final UsuarioRepository usuarioRepository;
     private final RestClient http;
-    // Pasa a false si la clave es SMTP o Brevo la rechaza (401): así el sitio no promete correos que no saldrán
+    // Pasa a false si la clave es SMTP o Brevo la rechaza (401) al arrancar: así el sitio no promete correos que no saldrán
     private volatile boolean claveValida = true;
 
     public EmailService(@Value("${app.mail.enabled:false}") boolean habilitado,
@@ -99,7 +99,8 @@ public class EmailService {
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 401) {
                 claveValida = false;
-                log.error("Brevo rechazó BREVO_API_KEY (401): revisa la clave. No se enviarán correos.");
+                // El motivo de Brevo distingue una clave mala de una IP no autorizada (Security > Authorised IPs)
+                log.error("Brevo rechazó BREVO_API_KEY (401): {}. No se enviarán correos.", e.getResponseBodyAsString());
             } else {
                 log.warn("No se pudo comprobar la clave de Brevo ({}); se intentará al enviar", e.getStatusCode().value());
             }
@@ -218,10 +219,8 @@ public class EmailService {
                     .toBodilessEntity();
             log.info("Correo enviado: \"{}\"", asunto);
         } catch (RestClientResponseException e) {
-            if (e.getStatusCode().value() == 401) {
-                // Clave rechazada: deja de prometer correos hasta que se corrija y se reinicie
-                claveValida = false;
-            }
+            // Un rechazo al enviar (incluido un 401 pasajero) solo se anota: no desactiva el correo.
+            // La clave mal configurada ya la detecta verificarClave() al arrancar.
             // Brevo explica el motivo en el cuerpo (remitente sin verificar, clave inválida...)
             log.warn("Brevo rechazó el correo \"{}\" ({}): {}", asunto, e.getStatusCode().value(), e.getResponseBodyAsString());
         } catch (RuntimeException e) {
